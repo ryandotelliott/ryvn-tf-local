@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/http"
       version = "~> 3.5"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.12"
+    }
   }
 }
 
@@ -25,8 +29,20 @@ data "http" "slow_plan" {
   url = local.effective_delay_url
 }
 
+resource "time_sleep" "operation_delay" {
+  create_duration  = "${var.sleep_seconds}s"
+  destroy_duration = "${var.sleep_seconds}s"
+
+  triggers = {
+    plan_body_hash = sha256(data.http.slow_plan.response_body)
+  }
+}
+
 resource "terraform_data" "marker" {
-  input = sha256(data.http.slow_plan.response_body)
+  input = {
+    plan_body_hash = sha256(data.http.slow_plan.response_body)
+    delay_id       = time_sleep.operation_delay.id
+  }
 }
 
 output "marker" {
