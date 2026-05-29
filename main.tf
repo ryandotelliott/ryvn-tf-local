@@ -14,9 +14,9 @@ variable "sleep_seconds" {
 
 data "external" "slow_plan" {
   program = [
-    "bash",
+    "/bin/sh",
     "-c",
-    "sleep ${var.sleep_seconds}; echo '{\"result\":\"done\"}'",
+    "sleep ${var.sleep_seconds}; printf '%s\n' '{\"result\":\"done\"}'",
   ]
 }
 
