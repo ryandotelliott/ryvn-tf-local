@@ -60,9 +60,19 @@ resource "terraform_data" "marker" {
   }
 }
 
+resource "time_sleep" "apply_failure_delay" {
+  create_duration = var.fail_apply ? "${var.apply_failure_sleep_seconds}s" : "0s"
+
+  triggers = {
+    delay_id      = time_sleep.operation_delay.id
+    fail_apply    = tostring(var.fail_apply)
+    failure_nonce = var.failure_nonce
+  }
+}
+
 resource "terraform_data" "apply_failure" {
   input = {
-    delay_id = time_sleep.operation_delay.id
+    delay_id = time_sleep.apply_failure_delay.id
   }
 
   triggers_replace = {
@@ -70,10 +80,11 @@ resource "terraform_data" "apply_failure" {
     failure_nonce = var.failure_nonce
   }
 
-  provisioner "local-exec" {
-    when        = create
-    interpreter = ["/bin/sh", "-c"]
-    command     = var.fail_apply ? "sleep ${var.apply_failure_sleep_seconds}; echo forced apply failure >&2; exit 42" : "true"
+  lifecycle {
+    postcondition {
+      condition     = !var.fail_apply || self.output.delay_id == "apply failure disabled"
+      error_message = "forced apply failure"
+    }
   }
 }
 
