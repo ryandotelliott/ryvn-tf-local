@@ -1,4 +1,4 @@
-name: Build & Release lifecycle-hook-job (Combined)
+name: Build & Release lifecycle-hook-job
 
 on:
   workflow_dispatch:
@@ -13,93 +13,14 @@ on:
       - "services/lifecycle-hook-job/**"
       - ".github/workflows/ryvn-lifecycle-hook-job-release.yaml"
 
-env:
-  SERVICE_NAME: lifecycle-hook-job
-
 jobs:
-  build-and-release:
-    name: Build and Release
-    runs-on: ubuntu-latest
+  release:
+    uses: ryvn-technologies/ryvn-build-action/.github/workflows/release.yml@v2
+    with:
+      service_name: lifecycle-hook-job
     permissions:
       contents: write
       id-token: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install Ryvn CLI
-        uses: ryvn-technologies/install-ryvn-cli@v1.0.0
-
-      - name: Generate Release Tag
-        id: generate-tag
-        env:
-          RYVN_CLIENT_ID: ${{ secrets.RYVN_CLIENT_ID }}
-          RYVN_CLIENT_SECRET: ${{ secrets.RYVN_CLIENT_SECRET }}
-        run: |
-          # Generate new tag using ryvn CLI
-          tag_info=$(ryvn generate-release-tag ${{ env.SERVICE_NAME }} --prefix=lifecycle-hook-job@ -o json --default-bump-minor)
-
-          # Extract version and tag from JSON output
-          version=$(echo "$tag_info" | jq -r '.version')
-          new_tag=$(echo "$tag_info" | jq -r '.tag')
-          channel=$(echo "$tag_info" | jq -r '.channel')
-          should_release=$(echo "$tag_info" | jq -r '.shouldRelease')
-
-          echo "version=$version" >> $GITHUB_OUTPUT
-          echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
-          echo "channel=$channel" >> $GITHUB_OUTPUT
-          echo "should_release=$should_release" >> $GITHUB_OUTPUT
-
-      - name: Build and Push
-        if: always()
-        uses: ryvn-technologies/ryvn-build-action@v1.2.0
-        with:
-          service_name: ${{ env.SERVICE_NAME }}
-          version: ${{ steps.generate-tag.outputs.version }}
-          build_only: ${{ steps.generate-tag.outputs.channel == '' }}
-          ryvn_client_id: ${{ secrets.RYVN_CLIENT_ID }}
-          ryvn_client_secret: ${{ secrets.RYVN_CLIENT_SECRET }}
-
-      - name: Create Ryvn Release
-        if: |
-          steps.generate-tag.outputs.channel != '' &&
-          !contains(github.event.head_commit.message, '[skip-release]') &&
-          !contains(github.event.pull_request.title, '[skip-release]')
-        env:
-          RYVN_CLIENT_ID: ${{ secrets.RYVN_CLIENT_ID }}
-          RYVN_CLIENT_SECRET: ${{ secrets.RYVN_CLIENT_SECRET }}
-        run: |
-          version="${{ steps.generate-tag.outputs.new_tag }}"
-          version=${version#lifecycle-hook-job@}
-          version=${version#@}
-          channel="${{ steps.generate-tag.outputs.channel }}"
-
-          ryvn create release ${{ env.SERVICE_NAME }} $version --channel "$channel"
-
-      - name: Create GitHub Tag
-        if: |
-          steps.generate-tag.outputs.should_release == 'true' &&
-          !contains(github.event.head_commit.message, '[skip-release]') &&
-          !contains(github.event.pull_request.title, '[skip-release]')
-        run: |
-          new_tag="${{ steps.generate-tag.outputs.new_tag }}"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          git tag $new_tag
-          git push origin $new_tag
-
-      - name: Create GitHub Release
-        if: |
-          steps.generate-tag.outputs.should_release == 'true' &&
-          !contains(github.event.head_commit.message, '[skip-release]') &&
-          !contains(github.event.pull_request.title, '[skip-release]')
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.generate-tag.outputs.new_tag }}
-          name: ${{ steps.generate-tag.outputs.new_tag }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+    secrets:
+      RYVN_CLIENT_ID: ${{ secrets.RYVN_CLIENT_ID }}
+      RYVN_CLIENT_SECRET: ${{ secrets.RYVN_CLIENT_SECRET }}
