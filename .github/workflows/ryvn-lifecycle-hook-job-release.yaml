@@ -18,6 +18,9 @@ jobs:
     uses: ryvn-technologies/ryvn-build-action/.github/workflows/release.yml@v2
     with:
       service_name: lifecycle-hook-job
+      ryvn_api_url: ${{ vars.RYVN_API_URL }}
+      ryvn_auth_url: ${{ vars.RYVN_AUTH_URL }}
+      ryvn_project_id: ${{ vars.RYVN_PROJECT_ID }}
     permissions:
       contents: write
       id-token: write
